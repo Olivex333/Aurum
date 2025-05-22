@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel - Products</title>
+
+  <!-- Google Fonts (Inter) -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+  />
+  <!-- Plik CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <i data-feather="zap"></i>
+      <span>Aurum</span>
+    </div>
+    <nav>
+      <a href="/products-page" class="active"><i data-feather="package"></i>Products</a>
+      <a href="/users-page"><i data-feather="users"></i>Users</a>
+    </nav>
+    <div class="bottom-links">
+      <a href="#"><i data-feather="settings"></i>Settings</a>
+      <a href="#"><i data-feather="log-out"></i>Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="search-bar">
+        <i data-feather="search"></i>
+        <input type="text" placeholder="Search for product..." id="searchProductInput"/>
+      </div>
+      <div class="right-area">
+        <div class="avatar">
+          <img src="https://i.pravatar.cc/300" alt="Admin Avatar" />
+        </div>
+      </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content-header">
+        <h1>Products</h1>
+        <div class="header-actions">
+          <button id="addProductBtn">+ Add New Product</button>
+          <button id="deleteProductBtn">- Delete Product</button>
+          <button id="confirmDeleteProductBtn" style="display:none; background-color:#e74c3c;">Confirm Delete</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Colors</th>
+              <th>Sizes</th>
+              <th>Image URL</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody id="products-table-body">
+            <!-- Wiersze dynamicznie -->
+          </tbody>
+        </table>
+        <div class="table-footer">
+          <div id="products-table-info">Showing 0 from 0 entries</div>
+          <div class="pagination">
+            <button class="active">1</button>
+            <button>2</button>
+            <button>3</button>
+            <button>Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    feather.replace();
+
+    let allProducts = [];
+    let deleteProductMode = false;
+
+    const searchInput = document.getElementById('searchProductInput');
+    const tableBody = document.getElementById('products-table-body');
+    const tableInfo = document.getElementById('products-table-info');
+    const addProductBtn = document.getElementById('addProductBtn');
+    const deleteProductBtn = document.getElementById('deleteProductBtn');
+    const confirmDeleteProductBtn = document.getElementById('confirmDeleteProductBtn');
+
+    // Pobierz listę produktów z /api/products
+    async function fetchProducts() {
+      try {
+        const resp = await fetch('/api/products');
+        if (!resp.ok) throw new Error('HTTP Error ' + resp.status);
+        return await resp.json();
+      } catch (err) {
+        console.error('Błąd pobierania produktów:', err);
+        return [];
+      }
+    }
+
+    function renderProducts(products) {
+      tableBody.innerHTML = '';
+      products.forEach(prod => {
+        let checkboxTd = deleteProductMode
+          ? `<input type="checkbox" class="prod-delete-checkbox" data-productid="${prod.id}"/>`
+          : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${checkboxTd}</td>
+          <td>${prod.id}</td>
+          <td>${prod.name}</td>
+          <td>${prod.price}</td>
+          <td>${prod.colors}</td>
+          <td>${prod.sizes ?? ''}</td>
+          <td>${prod.image_url ?? ''}</td>
+          <td>${prod.description ?? ''}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+      tableInfo.textContent = `Showing ${products.length} from ${products.length} entries`;
+    }
+
+    // Inicjalizacja
+    async function init() {
+      allProducts = await fetchProducts();
+      renderProducts(allProducts);
+
+      // Wyszukiwanie
+      searchInput.addEventListener('input', () => {
+        const val = searchInput.value.toLowerCase();
+        const filtered = allProducts.filter(p => 
+          p.name.toLowerCase().includes(val)
+          || p.colors.toLowerCase().includes(val || '')
+          || (p.sizes && p.sizes.toLowerCase().includes(val))
+          || (p.description && p.description.toLowerCase().includes(val))
+        );
+        renderProducts(filtered);
+      });
+    }
+    init();
+
+    // Dodawanie produktu
+    addProductBtn.addEventListener('click', () => {
+      // Nowe kolumny: sizes, image_url, description (textarea)
+      const newTr = document.createElement('tr');
+      newTr.innerHTML = `
+        <td></td>
+        <td>NEW</td>
+        <td><input type="text" id="newName" placeholder="Name"></td>
+        <td><input type="number" step="0.01" id="newPrice" placeholder="Price"></td>
+        <td><input type="text" id="newColors" placeholder="Colors"></td>
+        <td><input type="text" id="newSizes" placeholder="Sizes (np. S, M, L)"></td>
+        <td><input type="text" id="newImageUrl" placeholder="Image URL"></td>
+        <td>
+          <!-- multiline input -->
+          <textarea id="newDescription" placeholder="Opis produktu..."></textarea>
+        </td>
+        <td>
+          <button id="saveProductBtn">Save</button>
+        </td>
+      `;
+      tableBody.prepend(newTr);
+
+      document.getElementById('saveProductBtn').addEventListener('click', async () => {
+        const nameVal = document.getElementById('newName').value.trim();
+        const priceVal = parseFloat(document.getElementById('newPrice').value.trim() || '0');
+        const colorsVal = document.getElementById('newColors').value.trim();
+        const sizesVal = document.getElementById('newSizes').value.trim();
+        const imageUrlVal = document.getElementById('newImageUrl').value.trim();
+        const descriptionVal = document.getElementById('newDescription').value.trim();
+
+        // Minimalne wymagania
+        if (!nameVal || !colorsVal) {
+          alert('Podaj nazwę i kolor produktu!');
+          return;
+        }
+
+        try {
+          // POST /api/products
+          const resp = await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: nameVal,
+              price: priceVal,
+              colors: colorsVal,
+              sizes: sizesVal || null,
+              image_url: imageUrlVal || null,
+              description: descriptionVal || null
+            })
+          });
+          const result = await resp.json();
+          if (result.success) {
+            alert('Dodano nowy produkt do bazy.');
+            // Dodajemy do lokalnej tablicy
+            allProducts.push(result.product);
+            renderProducts(allProducts);
+          } else {
+            alert('Błąd dodawania produktu: ' + result.message);
+          }
+        } catch (err) {
+          console.error('Błąd dodawania produktu:', err);
+          alert('Wystąpił błąd podczas dodawania produktu.');
+        }
+      });
+    });
+
+    // Włączenie/wyłączenie trybu usuwania
+    deleteProductBtn.addEventListener('click', () => {
+      deleteProductMode = !deleteProductMode;
+      confirmDeleteProductBtn.style.display = deleteProductMode ? 'inline-block' : 'none';
+      renderProducts(allProducts);
+    });
+
+    // Usuwanie wielu produktów
+    confirmDeleteProductBtn.addEventListener('click', async () => {
+      const checked = document.querySelectorAll('.prod-delete-checkbox:checked');
+      if (!checked.length) {
+        alert('Nie wybrano żadnych produktów do usunięcia!');
+        return;
+      }
+      const idsToDelete = Array.from(checked).map(ch => ch.dataset.productid);
+      if (!confirm(`Czy na pewno usunąć produkty: ${idsToDelete.join(', ')}?`)) {
+        return;
+      }
+      try {
+        // DELETE /api/products
+        const resp = await fetch('/api/products', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: idsToDelete })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          alert('Usunięto wybrane produkty z bazy.');
+          // Usuń z local array
+          allProducts = allProducts.filter(p => !idsToDelete.includes(String(p.id)));
+          deleteProductMode = false;
+          confirmDeleteProductBtn.style.display = 'none';
+          renderProducts(allProducts);
+        } else {
+          alert('Błąd usuwania: ' + data.message);
+        }
+      } catch (err) {
+        console.error('Błąd usuwania produktów:', err);
+        alert('Wystąpił błąd podczas usuwania.');
+      }
+    });
+  </script>
+</body>
+</html>

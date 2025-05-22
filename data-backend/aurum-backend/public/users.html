@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel - Users</title>
+
+  <!-- Google Fonts (Inter) -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+  />
+
+  <!-- Plik CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Feather Icons -->
+  <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <i data-feather="zap"></i>
+      <span>Aurum</span>
+    </div>
+    <nav>
+      <a href="/products-page"><i data-feather="package"></i>Products</a>
+      <a href="/users-page" class="active"><i data-feather="users"></i>Users</a>
+    </nav>
+    <div class="bottom-links">
+      <a href="#"><i data-feather="settings"></i>Settings</a>
+      <a href="#"><i data-feather="log-out"></i>Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="search-bar">
+        <!-- Ikona lupki po lewej -->
+        <i data-feather="search"></i>
+        <input type="text" placeholder="Search for user..." id="searchInput"/>
+      </div>
+      <div class="right-area">
+        <div class="avatar">
+          <img src="https://i.pravatar.cc/300" alt="Admin Avatar" />
+        </div>
+      </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content-header">
+        <h1>Users</h1>
+        <div class="header-actions">
+          <button id="addUserBtn">+ Add New User</button>
+          <button id="deleteUserBtn">- Delete User</button>
+          <button id="confirmDeleteBtn" style="display:none; background-color:#e74c3c;">Confirm Delete</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>ID</th>
+              <th>Email</th>
+              <th>Username</th>
+              <th>Phone</th>
+              <th>Date of Birth</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <!-- Dynamically filled -->
+          </tbody>
+        </table>
+
+        <div class="table-footer">
+          <div id="table-info">Showing 0 from 0 entries</div>
+          <div class="pagination">
+            <button class="active">1</button>
+            <button>2</button>
+            <button>3</button>
+            <button>Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script>
+    feather.replace();
+
+    let allUsers = [];
+    let deleteMode = false;
+
+    const tableBody = document.getElementById('users-table-body');
+    const tableInfo = document.getElementById('table-info');
+    const searchInput = document.getElementById('searchInput');
+    const addUserBtn = document.getElementById('addUserBtn');
+    const deleteUserBtn = document.getElementById('deleteUserBtn');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+    // 1. Pobierz użytkowników z /api/users
+    async function fetchUsers() {
+      try {
+        const response = await fetch('/api/users');
+        if (!response.ok) throw new Error('HTTP Error ' + response.status);
+        return await response.json();
+      } catch (err) {
+        console.error('Błąd fetchUsers:', err);
+        return [];
+      }
+    }
+
+    // 2. Renderuj
+    function renderUsers(users) {
+      tableBody.innerHTML = '';
+      users.forEach(user => {
+        let checkboxTd = deleteMode
+          ? `<input type="checkbox" class="delete-checkbox" data-userid="${user.id}"/>`
+          : '';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${checkboxTd}</td>
+          <td>${user.id}</td>
+          <td>${user.email}</td>
+          <td>${user.username}</td>
+          <td>${user.phone}</td>
+          <td>${user.date_of_birth ?? 'N/A'}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+      tableInfo.textContent = `Showing ${users.length} from ${users.length} entries`;
+    }
+
+    // 3. Inicjalizacja strony
+    async function init() {
+      allUsers = await fetchUsers();
+      renderUsers(allUsers);
+
+      // Prosty search
+      searchInput.addEventListener('input', () => {
+        const val = searchInput.value.toLowerCase();
+        const filtered = allUsers.filter(u =>
+          u.email.toLowerCase().includes(val)
+          || u.username.toLowerCase().includes(val)
+          || u.phone.includes(val)
+          || (u.date_of_birth && u.date_of_birth.includes(val))
+        );
+        renderUsers(filtered);
+      });
+    }
+
+    init();
+
+    // 4. Dodawanie nowego usera (bez hasła)
+    addUserBtn.addEventListener('click', () => {
+      // Dodaj pusty wiersz na górze
+      const newTr = document.createElement('tr');
+      newTr.innerHTML = `
+        <td></td>
+        <td>NEW</td>
+        <td><input type="text" id="newEmail" placeholder="Email"></td>
+        <td><input type="text" id="newUsername" placeholder="Username"></td>
+        <td><input type="text" id="newPhone" placeholder="Phone"></td>
+        <td><input type="date" id="newDob"></td>
+        <td><button id="saveNewBtn">Save</button></td>
+      `;
+      tableBody.prepend(newTr);
+
+      document.getElementById('saveNewBtn').addEventListener('click', async () => {
+        const emailVal = document.getElementById('newEmail').value.trim();
+        const usernameVal = document.getElementById('newUsername').value.trim();
+        const phoneVal = document.getElementById('newPhone').value.trim();
+        const dobVal = document.getElementById('newDob').value;
+
+        if (!emailVal || !usernameVal || !phoneVal) {
+          alert('Wypełnij wymagane pola (email, username, phone)!');
+          return;
+        }
+
+        try {
+          // POST /api/users
+          const resp = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: emailVal,
+              username: usernameVal,
+              phone: phoneVal,
+              date_of_birth: dobVal
+            })
+          });
+          const result = await resp.json();
+          if (result.success) {
+            alert('Utworzono użytkownika, teraz ustaw hasło.');
+
+            // Dodaj do allUsers
+            allUsers.push(result.user);
+            renderUsers(allUsers);
+
+            // Prompt o hasło
+            const newPassword = prompt('Ustaw hasło dla użytkownika (opcjonalnie):');
+            if (newPassword && newPassword.length > 0) {
+              // PUT /api/users/:id/password
+              const passResp = await fetch(`/api/users/${result.user.id}/password`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: newPassword })
+              });
+              const passResult = await passResp.json();
+              if (passResult.success) {
+                alert('Hasło zostało ustawione!');
+              } else {
+                alert('Błąd ustawiania hasła: ' + passResult.message);
+              }
+            } else {
+              alert('Nie ustawiono hasła (pozostaje placeholder).');
+            }
+          } else {
+            alert('Błąd dodania użytkownika: ' + result.message);
+          }
+        } catch (err) {
+          console.error('Błąd dodawania użytkownika:', err);
+          alert('Wystąpił błąd podczas dodawania użytkownika.');
+        }
+      });
+    });
+
+    // 5. Tryb usuwania
+    deleteUserBtn.addEventListener('click', () => {
+      deleteMode = !deleteMode;
+      confirmDeleteBtn.style.display = deleteMode ? 'inline-block' : 'none';
+      renderUsers(allUsers);
+    });
+
+    // 6. Confirm Delete
+    confirmDeleteBtn.addEventListener('click', async () => {
+      const checked = document.querySelectorAll('.delete-checkbox:checked');
+      if (!checked.length) {
+        alert('Nie wybrano żadnych użytkowników do usunięcia!');
+        return;
+      }
+      const idsToDelete = Array.from(checked).map(ch => ch.dataset.userid);
+      if (!confirm(`Czy na pewno usunąć użytkowników: ${idsToDelete.join(', ')}?`)) {
+        return;
+      }
+      try {
+        const resp = await fetch('/api/users', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: idsToDelete }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+          alert('Usunięto użytkowników');
+          // Wywalamy z allUsers
+          allUsers = allUsers.filter(u => !idsToDelete.includes(u.id.toString()));
+          deleteMode = false;
+          confirmDeleteBtn.style.display = 'none';
+          renderUsers(allUsers);
+        } else {
+          alert('Błąd usuwania: ' + data.message);
+        }
+      } catch (err) {
+        console.error('Błąd usuwania:', err);
+        alert('Wystąpił błąd przy usuwaniu.');
+      }
+    });
+  </script>
+</body>
+</html>
