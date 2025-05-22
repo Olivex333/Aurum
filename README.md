@@ -60,3 +60,14 @@ Wkłady są mile widziane! Zachęcamy do otwierania issue lub pull requestów do
 ## Licencja
 
 Projekt jest udostępniony na licencji MIT.
+![photo](https://i.imgur.com/zGBjdKM.png)
+![photo](https://i.imgur.com/z3pt7cS.png)
+![photo](https://i.imgur.com/2mkxvQ8.png)
+![photo](https://i.imgur.com/PqzuNum.png)
+![photo](https://i.imgur.com/BdqjVE8.png)
+![photo](https://i.imgur.com/kpGgPad.png)
+![photo](https://i.imgur.com/ctaoYTK.png)
+![photo](https://i.imgur.com/3ZQ8NDu.png)
+
+
+
