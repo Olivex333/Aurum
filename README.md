@@ -59,4 +59,4 @@ Wkłady są mile widziane! Zachęcamy do otwierania issue lub pull requestów do
 
 ## Licencja
 
-Projekt jest udostępniony na licencji MIT. Dodaj plik [LICENSE](LICENSE) ze szczegółami.
+Projekt jest udostępniony na licencji MIT.
