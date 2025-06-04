@@ -1,65 +1,66 @@
 # Aurum
 
-Aplikacja mobilna sklepu z odzieżą stworzona w **Kotlinie** przy użyciu **Jetpack Compose** oraz backendu **Node.js/Express** z bazą danych **PostgreSQL**. Aurum umożliwia przeglądanie produktów, rejestrację i logowanie, zarządzanie koszykiem oraz wishlistą — wszystko w nowoczesnym, responsywnym interfejsie.
+A mobile clothing store application created in **Kotlin** using **Jetpack Compose** and a **Node.js/Express** backend with a **PostgreSQL** database. Aurum allows browsing products, registration and login, managing the cart and wishlist — all in a modern, responsive interface.
 
-## Przegląd
+## Overview
 
-Aurum to pełnostackowa aplikacja mobilna, która przenosi doświadczenie zakupów prosto na Twój telefon. Oferuje:
+Aurum is a full-stack mobile application that brings the shopping experience straight to your phone. It offers:
 
-- **Katalog produktów**: Przeglądaj i oglądaj szczegółowe informacje o każdym artykule odzieżowym.  
-- **Autoryzacja użytkowników**: Bezpieczna rejestracja i logowanie oparte na JWT.  
-- **Koszyk**: Dodawaj produkty z wybranym rozmiarem i kolorem, przeglądaj zawartość koszyka i usuwaj elementy.  
-- **Wishlist**: Zapisuj ulubione produkty, aby wrócić do nich później.  
+- **Product catalog**: Browse and view detailed information about each clothing item.
+- **User authentication**: Secure registration and login based on JWT.
+- **Cart**: Add products with selected size and color, view cart contents, and remove items.
+- **Wishlist**: Save favorite products to return to later.
 
-## Funkcje
+## Features
 
-- **Przeglądanie produktów**: Pobieranie i wyświetlanie listy produktów z serwera.  
-- **Rejestracja i logowanie**: Bezpieczne endpointy do tworzenia kont i uzyskiwania tokenów JWT.  
-- **Zarządzanie koszykiem**: Dodawanie produktów, przeglądanie zawartości koszyka i usuwanie przedmiotów.  
-- **Zarządzanie wishlistą**: Dodawanie i usuwanie produktów z osobistej listy życzeń.  
+- **Product browsing**: Fetching and displaying a list of products from the server.
+- **Registration and login**: Secure endpoints for creating accounts and obtaining JWT tokens.
+- **Cart management**: Adding products, viewing cart contents, and removing items.
+- **Wishlist management**: Adding and removing products from a personal wishlist.
 
-## Stos technologiczny
+## Technology Stack
 
-- **Aplikacja Android**:
-  - Kotlin  
-  - Jetpack Compose  
-  - Retrofit + OkHttp + Gson  
-  - Coroutines (funkcje suspend)  
+- **Android App**:
+  - Kotlin
+  - Jetpack Compose
+  - Retrofit + OkHttp + Gson
+  - Coroutines (suspend functions)
 
 - **Backend**:
-  - Node.js + Express  
-  - CORS i middleware JSON  
-  - Autoryzacja JWT (jsonwebtoken)  
-  - PostgreSQL (node-postgres)  
-  - Bcrypt do hashowania haseł  
+  - Node.js + Express
+  - CORS and JSON middleware
+  - JWT authorization (jsonwebtoken)
+  - PostgreSQL (node-postgres)
+  - Bcrypt for password hashing
 
-## Architektura
+## Architecture
 
-- **Wzorzec repozytorium**: `AuthRepository`, `CartRepository` itd. enkapsulują logikę wywołań API.  
-- **Instancje API**: Singletony `Retrofit` (`AurumApi`, `CartApiInstance`, `WishlistApiInstance`) odpowiadają za warstwę sieciową.  
-- **Obiekty transferu danych**: `ProductDto`, `CartItemDto`, `WishlistItemDto` mapują dane JSON.  
+- **Repository pattern**: `AuthRepository`, `CartRepository`, etc. encapsulate API call logic.
+- **API instances**: Retrofit singletons (`AurumApi`, `CartApiInstance`, `WishlistApiInstance`) handle the network layer.
+- **Data transfer objects**: `ProductDto`, `CartItemDto`, `WishlistItemDto` map JSON data.
 
-## Punkty końcowe API
+## API Endpoints
 
-| Metoda | Endpoint                    | Opis                                     |
+| Method | Endpoint                    | Description                              |
 | ------ | --------------------------- | ---------------------------------------- |
-| GET    | `/api/products`             | Pobierz wszystkie produkty               |
-| POST   | `/register`                 | Utwórz nowe konto                        |
-| POST   | `/login`                    | Zaloguj się i otrzymaj JWT               |
-| GET    | `/api/cart`                 | Pobierz zawartość koszyka (autoryzacja)  |
-| POST   | `/api/cart`                 | Dodaj przedmiot do koszyka (autoryzacja) |
-| DELETE | `/api/cart/:cartItemId`     | Usuń przedmiot z koszyka (autoryzacja)   |
-| GET    | `/api/wishlist`             | Pobierz listę życzeń (autoryzacja)       |
-| POST   | `/api/wishlist`             | Dodaj przedmiot do życzeń (autoryzacja)  |
-| DELETE | `/api/wishlist/:itemId`     | Usuń przedmiot z życzeń (autoryzacja)    |
+| GET    | `/api/products`             | Get all products                         |
+| POST   | `/register`                 | Create a new account                     |
+| POST   | `/login`                    | Log in and receive JWT                   |
+| GET    | `/api/cart`                 | Get cart contents (authorization required) |
+| POST   | `/api/cart`                 | Add item to cart (authorization required) |
+| DELETE | `/api/cart/:cartItemId`     | Remove item from cart (authorization required) |
+| GET    | `/api/wishlist`             | Get wishlist (authorization required)    |
+| POST   | `/api/wishlist`             | Add item to wishlist (authorization required) |
+| DELETE | `/api/wishlist/:itemId`     | Remove item from wishlist (authorization required) |
 
-## Wkład
+## Contribution
 
-Wkłady są mile widziane! Zachęcamy do otwierania issue lub pull requestów dotyczących poprawek, ulepszeń lub nowych funkcji.
+Contributions are welcome! Feel free to open issues or pull requests for fixes, improvements, or new features.
 
-## Licencja
+## License
 
-Projekt jest udostępniony na licencji MIT.
+The project is released under the MIT license.
+
 ![photo](https://i.imgur.com/zGBjdKM.png)
 ![photo](https://i.imgur.com/z3pt7cS.png)
 ![photo](https://i.imgur.com/2mkxvQ8.png)
