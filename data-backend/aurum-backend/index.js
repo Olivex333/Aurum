@@ -8,19 +8,68 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-const SECRET_KEY = 'supersecret';
+// Sekrety i dane bazy pochodza ze zmiennych srodowiskowych (plik .env, nie trafia do repo).
+// Start: node --env-file=.env index.js  (Node 20.6+), wzor w .env.example
+const SECRET_KEY = process.env.JWT_SECRET;
+if (!SECRET_KEY || SECRET_KEY.length < 32) {
+  console.error('Brak JWT_SECRET (min. 32 znaki) w zmiennych srodowiskowych. Zobacz .env.example');
+  process.exit(1);
+}
+
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
 
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'aurum',
-  password: '123',
-  port: 5432,
+  user: process.env.PGUSER,
+  host: process.env.PGHOST || 'localhost',
+  database: process.env.PGDATABASE || 'aurum',
+  password: process.env.PGPASSWORD,
+  port: Number(process.env.PGPORT) || 5432,
 });
+
+/* ---------- autoryzacja ---------- */
+
+function verifyToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
+    return res.status(401).json({ success: false, message: 'Brak nagłówka Authorization' });
+  }
+  const [scheme, token] = authHeader.split(' ');
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ success: false, message: 'Brak tokena' });
+  }
+  jwt.verify(token, SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ success: false, message: 'Niepoprawny lub wygasły token' });
+    }
+    req.user = decoded;
+    next();
+  });
+}
+
+// Rola sprawdzana w bazie przy kazdym zadaniu, wiec odebranie uprawnien dziala od razu
+async function requireAdmin(req, res, next) {
+  try {
+    const result = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.userId]);
+    if (result.rows.length === 0 || result.rows[0].role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Brak uprawnień administratora' });
+    }
+    next();
+  } catch (err) {
+    console.error('Błąd przy sprawdzaniu roli:', err);
+    res.status(500).json({ success: false, message: 'Błąd serwera' });
+  }
+}
+
+const adminOnly = [verifyToken, requireAdmin];
+
+function isPositiveIntArray(ids) {
+  return Array.isArray(ids) && ids.length > 0 && ids.length <= 500 &&
+    ids.every(id => Number.isInteger(id) && id > 0);
+}
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -34,7 +83,7 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', adminOnly, async (req, res) => {
   try {
     const { name, price, colors, sizes, image_url, description } = req.body;
     if (!name || price == null || !colors) {
@@ -67,11 +116,11 @@ app.post('/api/products', async (req, res) => {
   }
 });
 
-app.delete('/api/products', async (req, res) => {
+app.delete('/api/products', adminOnly, async (req, res) => {
   try {
     const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ success: false, message: 'Brak listy produktów do usunięcia' });
+    if (!isPositiveIntArray(ids)) {
+      return res.status(400).json({ success: false, message: 'Brak poprawnej listy produktów do usunięcia' });
     }
     const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
     const query = `DELETE FROM products WHERE id IN (${placeholders})`;
@@ -93,7 +142,7 @@ app.get('/products', async (req, res) => {
   }
 });
 
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', adminOnly, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT id, email, username, phone, date_of_birth
@@ -107,7 +156,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', adminOnly, async (req, res) => {
   try {
     const { email, username, phone, date_of_birth } = req.body;
     if (!email || !username || !phone) {
@@ -115,7 +164,7 @@ app.post('/api/users', async (req, res) => {
     }
     const insertQuery = `
       INSERT INTO users (email, username, phone, date_of_birth, password)
-      VALUES ($1, $2, $3, $4, 'placeholder')
+      VALUES ($1, $2, $3, $4, '!')
       RETURNING id, email, username, phone, date_of_birth
     `;
     const values = [email, username, phone, date_of_birth || null];
@@ -131,15 +180,18 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-app.put('/api/users/:id/password', async (req, res) => {
+app.put('/api/users/:id/password', adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const { password } = req.body;
-    if (!password) {
-      return res.status(400).json({ success: false, message: 'Brak hasła' });
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Hasło musi mieć co najmniej 8 znaków' });
     }
     const hashedPass = await bcrypt.hash(password, 10);
-    await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPass, id]);
+    const result = await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPass, id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Nie znaleziono użytkownika' });
+    }
     return res.json({ success: true, message: 'Hasło ustawione pomyślnie' });
   } catch (err) {
     console.error('Błąd przy ustawianiu hasła:', err);
@@ -147,11 +199,14 @@ app.put('/api/users/:id/password', async (req, res) => {
   }
 });
 
-app.delete('/api/users', async (req, res) => {
+app.delete('/api/users', adminOnly, async (req, res) => {
   try {
     const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ success: false, message: 'Brak listy do usunięcia' });
+    if (!isPositiveIntArray(ids)) {
+      return res.status(400).json({ success: false, message: 'Brak poprawnej listy do usunięcia' });
+    }
+    if (ids.includes(req.user.userId)) {
+      return res.status(400).json({ success: false, message: 'Nie możesz usunąć własnego konta' });
     }
     const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
     const query = `DELETE FROM users WHERE id IN (${placeholders})`;
@@ -168,6 +223,9 @@ app.post('/register', async (req, res) => {
     const { email, username, phone, password, dateOfBirth } = req.body;
     if (!email || !username || !phone || !password || !dateOfBirth) {
       return res.status(400).json({ success: false, message: 'Wszystkie pola są wymagane' });
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Hasło musi mieć co najmniej 8 znaków' });
     }
     const hashedPass = await bcrypt.hash(password, 10);
     await pool.query(
@@ -189,13 +247,13 @@ app.post('/login', async (req, res) => {
       'SELECT * FROM users WHERE email = $1 OR username = $1',
       [loginOrEmail]
     );
-    if (userResult.rows.length === 0) {
-      return res.status(400).json({ success: false, message: 'Użytkownik nie istnieje' });
-    }
     const user = userResult.rows[0];
-    const match = await bcrypt.compare(password, user.password);
+    const match = user && typeof password === 'string' && typeof user.password === 'string' && user.password.startsWith('$2')
+      ? await bcrypt.compare(password, user.password)
+      : false;
     if (!match) {
-      return res.status(401).json({ success: false, message: 'Błędne hasło' });
+      // jeden komunikat dla zlego loginu i zlego hasla - nie zdradzamy, ktore konta istnieja
+      return res.status(401).json({ success: false, message: 'Błędny login lub hasło' });
     }
     const token = jwt.sign({ userId: user.id }, SECRET_KEY, { expiresIn: '3d' });
     return res.json({
@@ -206,7 +264,8 @@ app.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         username: user.username,
-        phone: user.phone
+        phone: user.phone,
+        role: user.role
       }
     });
   } catch (err) {
@@ -222,28 +281,10 @@ app.get('/products-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'products.html'));
 });
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 app.listen(PORT, () => {
   console.log(`Serwer działa na porcie ${PORT}`);
 });
-
-function verifyToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) {
-    return res.status(401).json({ success: false, message: 'Brak nagłówka Authorization' });
-  }
-  const token = authHeader.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ success: false, message: 'Brak tokena' });
-  }
-  jwt.verify(token, SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ success: false, message: 'Niepoprawny token' });
-    }
-    req.user = decoded;
-    next();
-  });
-}
 
 app.get('/api/cart', verifyToken, async (req, res) => {
   try {
