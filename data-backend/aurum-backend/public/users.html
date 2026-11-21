@@ -16,6 +16,7 @@
 
   <!-- Feather Icons -->
   <script src="https://unpkg.com/feather-icons"></script>
+  <script src="js/admin-auth.js"></script>
 </head>
 <body>
   <!-- SIDEBAR -->
@@ -30,7 +31,7 @@
     </nav>
     <div class="bottom-links">
       <a href="#"><i data-feather="settings"></i>Settings</a>
-      <a href="#"><i data-feather="log-out"></i>Logout</a>
+      <a href="#" onclick="adminLogout(); return false;"><i data-feather="log-out"></i>Logout</a>
     </div>
   </aside>
 
@@ -107,7 +108,7 @@
     // 1. Pobierz użytkowników z /api/users
     async function fetchUsers() {
       try {
-        const response = await fetch('/api/users');
+        const response = await adminFetch('/api/users');
         if (!response.ok) throw new Error('HTTP Error ' + response.status);
         return await response.json();
       } catch (err) {
@@ -186,7 +187,7 @@
 
         try {
           // POST /api/users
-          const resp = await fetch('/api/users', {
+          const resp = await adminFetch('/api/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -208,7 +209,7 @@
             const newPassword = prompt('Ustaw hasło dla użytkownika (opcjonalnie):');
             if (newPassword && newPassword.length > 0) {
               // PUT /api/users/:id/password
-              const passResp = await fetch(`/api/users/${result.user.id}/password`, {
+              const passResp = await adminFetch(`/api/users/${result.user.id}/password`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: newPassword })
@@ -246,12 +247,12 @@
         alert('Nie wybrano żadnych użytkowników do usunięcia!');
         return;
       }
-      const idsToDelete = Array.from(checked).map(ch => ch.dataset.userid);
+      const idsToDelete = Array.from(checked).map(ch => Number(ch.dataset.userid));
       if (!confirm(`Czy na pewno usunąć użytkowników: ${idsToDelete.join(', ')}?`)) {
         return;
       }
       try {
-        const resp = await fetch('/api/users', {
+        const resp = await adminFetch('/api/users', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: idsToDelete }),
