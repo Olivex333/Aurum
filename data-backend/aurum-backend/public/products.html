@@ -13,6 +13,7 @@
   <!-- Plik CSS -->
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://unpkg.com/feather-icons"></script>
+  <script src="js/admin-auth.js"></script>
 </head>
 <body>
 
@@ -28,7 +29,7 @@
     </nav>
     <div class="bottom-links">
       <a href="#"><i data-feather="settings"></i>Settings</a>
-      <a href="#"><i data-feather="log-out"></i>Logout</a>
+      <a href="#" onclick="adminLogout(); return false;"><i data-feather="log-out"></i>Logout</a>
     </div>
   </aside>
 
@@ -104,7 +105,7 @@
     // Pobierz listę produktów z /api/products
     async function fetchProducts() {
       try {
-        const resp = await fetch('/api/products');
+        const resp = await adminFetch('/api/products');
         if (!resp.ok) throw new Error('HTTP Error ' + resp.status);
         return await resp.json();
       } catch (err) {
@@ -192,7 +193,7 @@
 
         try {
           // POST /api/products
-          const resp = await fetch('/api/products', {
+          const resp = await adminFetch('/api/products', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -234,13 +235,13 @@
         alert('Nie wybrano żadnych produktów do usunięcia!');
         return;
       }
-      const idsToDelete = Array.from(checked).map(ch => ch.dataset.productid);
+      const idsToDelete = Array.from(checked).map(ch => Number(ch.dataset.productid));
       if (!confirm(`Czy na pewno usunąć produkty: ${idsToDelete.join(', ')}?`)) {
         return;
       }
       try {
         // DELETE /api/products
-        const resp = await fetch('/api/products', {
+        const resp = await adminFetch('/api/products', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: idsToDelete })
