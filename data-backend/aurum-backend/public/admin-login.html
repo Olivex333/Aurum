@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aurum - logowanie administratora</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"/>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .login-box { max-width: 360px; margin: 12vh auto; padding: 32px; background: #fff;
+                 border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); font-family: Inter, sans-serif; }
+    .login-box h1 { font-size: 20px; margin: 0 0 20px; }
+    .login-box label { display: block; font-size: 14px; margin: 12px 0 4px; }
+    .login-box input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; }
+    .login-box button { margin-top: 20px; width: 100%; padding: 10px; border: 0; border-radius: 8px;
+                        background: #222; color: #fff; font-weight: 600; cursor: pointer; }
+    .login-error { color: #b3261e; font-size: 14px; min-height: 20px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <form class="login-box" id="loginForm">
+    <h1>Panel administratora</h1>
+    <label for="login">Login lub e-mail</label>
+    <input id="login" autocomplete="username" required />
+    <label for="password">Hasło</label>
+    <input id="password" type="password" autocomplete="current-password" required />
+    <button type="submit">Zaloguj</button>
+    <div class="login-error" id="error"></div>
+  </form>
+  <script>
+    const form = document.getElementById('loginForm');
+    const errorBox = document.getElementById('error');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.textContent = '';
+      try {
+        const resp = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            loginOrEmail: document.getElementById('login').value.trim(),
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) { errorBox.textContent = data.message || 'Nie udało się zalogować'; return; }
+        if (data.user.role !== 'admin') { errorBox.textContent = 'To konto nie ma uprawnień administratora'; return; }
+        try { sessionStorage.setItem('aurumAdminToken', data.token); } catch (err) { /* brak storage */ }
+        const next = new URLSearchParams(location.search).get('next');
+        location.href = (next && /^\/[\w\-\/.]*$/.test(next) && !next.startsWith('//')) ? next : '/users-page';
+      } catch (err) {
+        errorBox.textContent = 'Błąd połączenia z serwerem';
+      }
+    });
+  </script>
+</body>
+</html>
