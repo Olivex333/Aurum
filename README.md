@@ -52,6 +52,38 @@ Aurum is a full-stack mobile application that brings the shopping experience str
 | GET    | `/api/wishlist`             | Get wishlist (authorization required)    |
 | POST   | `/api/wishlist`             | Add item to wishlist (authorization required) |
 | DELETE | `/api/wishlist/:itemId`     | Remove item from wishlist (authorization required) |
+| POST   | `/api/products`             | Add product (admin only)                 |
+| DELETE | `/api/products`             | Delete products (admin only)             |
+| GET    | `/api/users`                | List users (admin only)                  |
+| POST   | `/api/users`                | Create user (admin only)                 |
+| PUT    | `/api/users/:id/password`   | Set user password (admin only)           |
+| DELETE | `/api/users`                | Delete users (admin only)                |
+
+## Security
+
+- Secrets are not stored in the code: the JWT secret and database credentials are read from environment variables (`.env`, excluded from Git; template in `.env.example`). The server refuses to start without a JWT secret of at least 32 characters.
+- Admin endpoints require a valid JWT **and** the `admin` role, checked in the database on every request, so revoking the role takes effect immediately.
+- The admin panel (`/users-page`, `/products-page`) has its own login page (`/admin-login.html`); the token is kept in `sessionStorage`.
+- Passwords are hashed with bcrypt (minimum 8 characters). Login returns the same message for an unknown user and a wrong password.
+- All SQL queries are parameterised; ID lists are validated as positive integers. An admin cannot delete their own account.
+
+## Running the backend
+
+Requires Node.js 20.6+ and PostgreSQL.
+
+```bash
+cd data-backend/aurum-backend
+npm install
+cp .env.example .env        # fill in JWT_SECRET and PGPASSWORD
+psql -d aurum -f sql/001_role_uzytkownika.sql
+npm start
+```
+
+To create an administrator, register an account in the app and run:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your@email.com';
+```
 
 ## Contribution
 
